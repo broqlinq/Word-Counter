@@ -8,8 +8,16 @@ import java.util.concurrent.Future;
 
 public class WebScanningJob implements ScanningJob {
 
+    /**
+     * An URL that will be scanned for keywords and inner links.
+     */
     private final String url;
 
+    /**
+     * Current depth of scan job. Any value greater than <code>0</code> will cause
+     * the job to initiate new <code>WebScanningJob</code> for any inner URL that
+     * is detected.
+     */
     private final int urlDepth;
 
     public WebScanningJob(String url) {

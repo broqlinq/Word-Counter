@@ -15,12 +15,22 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class WebScannerPool extends AbstractScannerPool<WebScanningJob> {
 
+    /**
+     * A map which holds information about visited URLs.
+     */
     private static final Map<URI, UrlInfo> visitedUrlInfoMap = new ConcurrentHashMap<>();
 
     public WebScannerPool(ScanningJobQueue jobQueue, ResultRetriever resultRetriever) {
         super(jobQueue, resultRetriever);
     }
 
+    /**
+     * Checks validity of given URL and tells whether its ready
+     * for scan or not.
+     * @param url an URL to be checked
+     * @return <code>true</code> if URL is ready for scanning,
+     * otherwise <code>false</code>
+     */
     public static boolean isUrlReadyToScan(String url) {
         try {
             URI uri = new URL(url).toURI();
@@ -30,6 +40,18 @@ public class WebScannerPool extends AbstractScannerPool<WebScanningJob> {
         }
     }
 
+    /**
+     * Checks whether the given <code>URI</code> object is ready
+     * to be scanned. <code>URI</code> is ready for scan if the
+     * one of the following is true:
+     * <ul>
+     *     <li><code>URI</code> is not registered as visited</li>
+     *     <li><code>URI</code> has expired</li>
+     * </ul>
+     * @param uri an <code>URI</code> object to be checked
+     * @return <code>true</code> or <code>false</code>, depending
+     * on whether the <code>URI</code> is ready or not
+     */
     public static boolean checkIfReadyToScan(URI uri) {
         long now = System.currentTimeMillis();
         if (visitedUrlInfoMap.containsKey(uri)) {
@@ -45,6 +67,10 @@ public class WebScannerPool extends AbstractScannerPool<WebScanningJob> {
         return true;
     }
 
+    /**
+     * A simple class that holds information about <code>URI</code>,
+     * more precisely its expiration time.
+     */
     private static class UrlInfo implements Comparable<UrlInfo> {
         private final URI uri;
         private long expirationTime;

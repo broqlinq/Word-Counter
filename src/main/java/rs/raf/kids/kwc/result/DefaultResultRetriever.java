@@ -11,8 +11,18 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class DefaultResultRetriever implements ResultRetriever {
+
+    /**
+     * Holds all the <code>Future</code> result objects for submitted
+     * scanning jobs.
+     */
     private final Map<String, Future<Map<String, Integer>>> scanResults;
+
+    /**
+     * A cache for scan summaries.
+     */
     private final Map<ScanType, Future<Map<String, Map<String, Integer>>>> scanSummaries;
+
     private final ExecutorService executorService;
 
     public DefaultResultRetriever() {
@@ -21,6 +31,14 @@ public class DefaultResultRetriever implements ResultRetriever {
         executorService = Executors.newCachedThreadPool();
     }
 
+    /**
+     * Gets scan result for given query. Caller thread is blocked
+     * until computation has finished.
+     * @param query a query to search results by
+     * @return result of keyword count for a query
+     * @throws IllegalArgumentException if the passed query
+     * is not found in result map
+     */
     @Override
     public Map<String, Integer> getResult(String query) {
         if (!scanResults.containsKey(query))
@@ -34,6 +52,16 @@ public class DefaultResultRetriever implements ResultRetriever {
         return Map.of();
     }
 
+    /**
+     * Gets scan result for given query. Unlike <code>getResult</code>,
+     * caller thread is not blocked if the computation is not finished,
+     * but the exception is thrown in that case.
+     * @param query a query to search results by
+     * @return result of keyword count for a query
+     * @throws IllegalArgumentException if the passed query
+     * is not found in result map
+     * @throws IllegalStateException if the computation is not yet finished
+     */
     @Override
     public Map<String, Integer> queryResult(String query) {
         if (!scanResults.containsKey(query))
@@ -51,6 +79,11 @@ public class DefaultResultRetriever implements ResultRetriever {
         return Map.of();
     }
 
+    /**
+     * Clears scan summary for a given scan type. Upon next <code>get</code>
+     * or <code>query</code>, a new summary task will be initiated.
+     * @param scanType
+     */
     @Override
     public void clearSummary(ScanType scanType) {
         switch (scanType) {
@@ -59,6 +92,15 @@ public class DefaultResultRetriever implements ResultRetriever {
         }
     }
 
+    /**
+     * Gets a summary of scan results for a given scan types. In case of
+     * <code>ScanType.FILE</code>, result will be scan results for all
+     * found corpus directories. In case of <code>ScanType.WEB</code>,
+     * result will be keyword count for all domains that were found during
+     * scan.
+     * @param scanType scan type to get summary for
+     * @return keyword count in corpus directories / domains
+     */
     @Override
     public Map<String, Map<String, Integer>> getSummary(ScanType scanType) {
         if (scanSummaries.containsKey(scanType)) {
@@ -75,12 +117,24 @@ public class DefaultResultRetriever implements ResultRetriever {
         return getSummaryFor(scanType);
     }
 
+    /**
+     * Submits a new summary task for specified scan type.
+     * @param scanType a scan type to get summary for
+     * @param summaryTask a task that will be executed
+     * @return a <code>Future</code> for passed task
+     */
     private Future<Map<String, Map<String, Integer>>> submitSummaryTask(ScanType scanType, Callable<Map<String, Map<String, Integer>>> summaryTask) {
         Future<Map<String, Map<String, Integer>>> future = executorService.submit(summaryTask);
         scanSummaries.put(scanType, future);
         return future;
     }
 
+    /**
+     * Gets a summary for given type. Caller thread will be blocked if
+     * until the computation has finished.
+     * @param scanType a scan type to get summary for
+     * @return a summary for passed scan type
+     */
     private Map<String, Map<String, Integer>> getSummaryFor(ScanType scanType) {
         try {
             return scanSummaries.get(scanType).get();
@@ -89,6 +143,10 @@ public class DefaultResultRetriever implements ResultRetriever {
         }
     }
 
+    /**
+     * Calculates summary result for all <code>FileScanningJob</code> jobs.
+     * @return a summary for all jobs of type <code>ScanType.FILE</code>
+     */
     private Map<String, Map<String, Integer>> getFileScansSummary() {
         Set<String> fileResultKeys = getFileScanKeys();
         Map<String, Map<String, Integer>> result = new HashMap<>();
@@ -98,6 +156,10 @@ public class DefaultResultRetriever implements ResultRetriever {
         return result;
     }
 
+    /**
+     * Gets all queries for jobs of scan type <code>ScanType.FILE</code>.
+     * @return queries for jobs of scan type <code>ScanType.FILE</code>
+     */
     private Set<String> getFileScanKeys() {
         return scanResults.keySet()
                 .stream()
@@ -105,6 +167,10 @@ public class DefaultResultRetriever implements ResultRetriever {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Calculates summary result for all <code>WebScanningJob</code> jobs.
+     * @return a summary for all jobs of type <code>ScanType.WEB</code>
+     */
     private Map<String, Map<String, Integer>> getWebScansSummary() {
         Set<String> webResultKeys = getWebScanKeys();
         Set<String> urls = webResultKeys.stream()
@@ -122,6 +188,10 @@ public class DefaultResultRetriever implements ResultRetriever {
         return result;
     }
 
+    /**
+     * Gets all queries for <code>WebScanningJob</code> jobs.
+     * @return queries for jobs of scan type <code>ScanType.WEB</code>
+     */
     private Set<String> getWebScanKeys() {
         return scanResults.keySet()
                 .stream()
@@ -129,6 +199,15 @@ public class DefaultResultRetriever implements ResultRetriever {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Gets a summary for given type. Unlike <code>getSummary</code>,
+     * a caller will not be blocked if the computation is not yet
+     * finished, but the exception will be thrown.
+     * @param scanType a scan type to get summary for
+     * @return a summary for passed scan type
+     * @throws IllegalStateException if the summary calcualtion
+     * is not yet finished
+     */
     @Override
     public Map<String, Map<String, Integer>> querySummary(ScanType scanType) {
         if (!scanSummaries.containsKey(scanType)) {
@@ -151,9 +230,14 @@ public class DefaultResultRetriever implements ResultRetriever {
         return Map.of();
     }
 
+    /**
+     * Adds a <code>Future</code> result object for a given query.
+     * @param query a key for result
+     * @param corpusResult result of computation for given query
+     */
     @Override
-    public void addCorpusResult(String corpus, Future<Map<String, Integer>> corpusResult) {
-        scanResults.put(corpus, corpusResult);
+    public void addCorpusResult(String query, Future<Map<String, Integer>> corpusResult) {
+        scanResults.put(query, corpusResult);
     }
 
     @Override

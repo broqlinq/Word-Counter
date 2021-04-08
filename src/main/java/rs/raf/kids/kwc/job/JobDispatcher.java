@@ -28,6 +28,12 @@ public class JobDispatcher implements Runnable, Stoppable {
         }
     }
 
+    /**
+     * Takes next job from <code>ScanningJobQueue</code> and delegates
+     * its execution to corresponding <code>ScannerPool</code> based on
+     * scan type. Taking a job of type <code>ScanType.TERMINATE</code>
+     * causes <code>JobDispatcher</code> to stop its execution.
+     */
     private void initiateNextAvailableScanningJob() {
         ScanningJob nextJob = jobQueue.next();
         ScanType scanType = nextJob.getScanType();
@@ -37,6 +43,13 @@ public class JobDispatcher implements Runnable, Stoppable {
         }
     }
 
+    /**
+     * Binds given <code>AbstractScannerPool</code> to a scan type, which
+     * causes any jobs of the given scan type to be passed directly to the
+     * registered pool for execution.
+     * @param scanType job scan type to be passed to given the pool
+     * @param scannerPool a pool that executes all jobs of given type
+     */
     public void registerScannerPool(ScanType scanType, AbstractScannerPool scannerPool) {
         scannerPools.put(scanType, scannerPool);
     }

@@ -12,18 +12,27 @@ import java.util.concurrent.Future;
 
 public abstract class AbstractScannerPool<T extends ScanningJob> implements ScannerPool<T> {
 
-    protected final ScanningJobQueue jobQueue;
-
+    /**
+     * An executor for given scanning jobs.
+     */
     protected final ExecutorService executorService;
 
+    /**
+     * Upon submitting a job, its corresponding <code>Future</code>
+     * object is put in <code>ResultRetriever</code>.
+     */
     protected final ResultRetriever resultRetriever;
 
     public AbstractScannerPool(ScanningJobQueue jobQueue, ResultRetriever resultRetriever) {
-        this.jobQueue = jobQueue;
         this.resultRetriever = resultRetriever;
         executorService = Executors.newCachedThreadPool();
     }
 
+    /**
+     * Accepts a scanning job and submits it for execution. The result of
+     * submission is put into <code>ResultRetriever</code>.
+     * @param job task to submit for execution
+     */
     @Override
     public void accept(T job) {
         Future<Map<String, Integer>> futureResult = job.initiate(executorService);
@@ -31,6 +40,9 @@ public abstract class AbstractScannerPool<T extends ScanningJob> implements Scan
         resultRetriever.addCorpusResult(job.getQuery(), futureResult);
     }
 
+    /**
+     * Shuts down executor service.
+     */
     public void terminate() {
         executorService.shutdown();
     }
