@@ -46,6 +46,8 @@ public class DirectoryCrawler implements Runnable, Stoppable {
      */
     private final String corpusPrefix;
 
+    private long sleepUntil;
+
     private final ScanningJobQueue scanningJobQueue;
 
     /**
@@ -178,8 +180,8 @@ public class DirectoryCrawler implements Runnable, Stoppable {
      * Updates <code>FileInfo</code> of corresponding file in <code>fileInfoMap</code>.
      * If its <code>FileInfo</code> was not found, a new instance is created and put
      * into <code>fileInfoMap</code>.
-     * @param file file to
-     * @return
+     * @param file file whose info will be updated
+     * @return <code>true</code> is file wasn't registered before or if it has expired
      */
     private boolean updateFileInfo(File file) {
 
@@ -222,9 +224,12 @@ public class DirectoryCrawler implements Runnable, Stoppable {
     }
 
     private void pause() {
+        sleepUntil = System.currentTimeMillis() + sleepTime;
         synchronized (this) {
             try {
-                wait(sleepTime);
+                while (System.currentTimeMillis() < sleepUntil && isRunning()) {
+                    wait(sleepTime);
+                }
             } catch (InterruptedException ignored) {}
         }
     }
